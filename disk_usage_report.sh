@@ -2,8 +2,17 @@
 # Beelink Weekly/System Report + Docker-Abschnitt
 # Hinweis: Für Mailversand muss 'mail' (bsd-mailx / mailutils) vorhanden sein.
 
-set -euo pipefail
-PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+set -Eeuo pipefail
+
+LOGFILE="/var/log/beelink_weekly_report.log"
+mkdir -p "$(dirname "$LOGFILE")"
+
+# Ausgabe gleichzeitig:
+#  - ins Terminal (stdout)
+#  - und in die Logdatei (append)
+exec > >(tee -a "$LOGFILE") 2>&1
+
+echo "===== WEEKLY REPORT - $(date '+%Y-%m-%d %H:%M:%S') – START ====="
 
 EMAIL="kontakt@jensneuhaus.de"  # Deine E-Mail-Adresse
 HOSTNAME=$(hostname)
@@ -126,5 +135,6 @@ fi
 # Healthcheck (optional)
 curl -m 10 --retry 5 https://hc-ping.com/44fb309b-6197-48c4-aeb8-2f9b1259288a 2>&1 || true
 
+echo "===== WEEKLY REPORT - $(date '+%Y-%m-%d %H:%M:%S') – ENDE ====="
 
 
