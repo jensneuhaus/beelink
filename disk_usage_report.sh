@@ -2,9 +2,9 @@
 # Beelink Weekly/System Report + Docker-Abschnitt
 # Hinweis: Für Mailversand muss 'mail' (bsd-mailx / mailutils) vorhanden sein.
 
-set -Eeuo pipefail
+#set -Eeuo pipefail
 
-LOGFILE="/var/log/beelink_weekly_report.log"
+LOGFILE="/home/jens/logs/beelink_weekly_report.log"
 mkdir -p "$(dirname "$LOGFILE")"
 
 # Ausgabe gleichzeitig:
@@ -21,17 +21,36 @@ HOSTNAME=$(hostname)
 USAGE=$(df --output=pcent / | tail -n 1 | tr -dc '0-9')
 
 if [ "$USAGE" -ge 90 ]; then
-  SUBJECT="[BEELINK] Speicherplatz-Report: ${USAGE}% (WARNUNG!)"
+  SUBJECT="[BEELINK] Wöchentlicher -Report: ${USAGE}% (WARNUNG!)"
 else
-  SUBJECT="[BEELINK] Speicherplatz-Report: ${USAGE}%"
+  SUBJECT="[BEELINK] Wöchentlicher Report: ${USAGE}%"
 fi
 
 DISK_INFO=$(df -h)
-DIR_DETAILS=$(du -sxh /home/jens/backups /home/jens/docker /home/jens/pgbackups /var/log /var/lib/docker /tmp /usr 2>/dev/null | sort -rh)
+DIR_DETAILS=$(du -sxh /home/jens/backups /home/jens/docker /var/log /var/lib/docker /tmp /usr 2>/dev/null | sort -rh)
 RAM_INFO=$(free -h | awk '/Mem:/ {print}')
 UPTIME_INFO=$(uptime)
 LAST_LOGIN=$(last -n 5 | head -5)
-FAILED_LOGINS=$(journalctl -u ssh --since "1 day ago" 2>/dev/null | grep 'Failed password' | tail -5 || true)
+FAILED_LOGINS=$(journalctl -u ssh --since "7 day ago" 2>/dev/null | grep 'Failed password' | tail -5 || true)
+
+# Mount-Check: /mnt/backup
+BACKUP_MNT="/mnt/backup"
+if mountpoint -q "$BACKUP_MNT"; then
+  BACKUP_USAGE=$(df --output=pcent "$BACKUP_MNT" | tail -n1 | tr -dc '0-9')
+  BACKUP_INFO=$(df -h "$BACKUP_MNT")
+else
+  BACKUP_USAGE="N/A"
+  BACKUP_INFO="⚠️ $BACKUP_MNT ist nicht gemountet."
+fi
+
+# Zombies zählen & Details
+ZOMBIE_LIST=$(ps -eo stat,ppid,pid,comm | awk '$1 ~ /Z/ {printf "ZOMBIE pid=%s ppid=%s cmd=%s\n",$3,$2,$4}')
+if [ -n "$ZOMBIE_LIST" ]; then
+  ZOMBIE_COUNT=$(echo "$ZOMBIE_LIST" | wc -l)
+else
+  ZOMBIE_COUNT=0
+  ZOMBIE_LIST="(keine)"
+fi
 
 # ---- Docker-Abschnitt (optional, falls Docker vorhanden) ----
 have_docker=false
@@ -96,8 +115,14 @@ $UPTIME_INFO
 👤 Letzte erfolgreichen Logins:
 $LAST_LOGIN
 
-🔐 Letzte fehlgeschlagene SSH-Logins (24h):
+🔐 Letzte fehlgeschlagene SSH-Logins:
 $FAILED_LOGINS
+
+🗄️ /mnt/backup:
+$BACKUP_INFO
+
+🧟 Zombies: $ZOMBIE_COUNT
+$ZOMBIE_LIST
 
 $DOCKER_HEADER
 ▶ Laufende Container:
